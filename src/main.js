@@ -18,8 +18,17 @@ const Message = ({ from, text, dateTime, type }) => h('article', {
   },
 }, [
   h('div', {}, from),
-  h('div', {}, text),
-  h('small', {}, dateTime.split('T').map(p => h('div', {}, p))),
+  h('pre', {
+    style: {
+      overflowX: 'hidden',
+      whiteSpace: 'pre-line',
+    },
+  }, text),
+  h('small', {
+    style: {
+      textAlign: 'right',
+    },
+  }, dateTime.split('T').map(p => h('div', {}, p))),
 ]);
 
 app({

@@ -6,8 +6,6 @@ const PeerHandlerSub = (dispatch, {
   OnSetOfferCode,
   OnMessagesAdd,
 }) => {
-  console.log('SignalSub.init', { connectTo });
-
   const addMessage = (from, text, type) => (
     dispatch(OnMessagesAdd, {
       from,
@@ -27,12 +25,16 @@ const PeerHandlerSub = (dispatch, {
 
   peer.on('error', (error) => {
     console.warn('Peer error', error);
-    addMessage('SYSTEM', `Error creating peer: ${error.toString()}`, 'error');
+    addMessage('SYSTEM', `Error creating peer: ${error.toString()}. See console for traceback.`, 'error');
   });
 
   peer.on('signal', (data) => {
     console.log('Peer received signal', data);
-    addMessage('SYSTEM', 'Generated offer');
+    if (data.type === 'offer') {
+      addMessage('System|Signal', `Offer:\n${data.sdp}`);
+    } else {
+      addMessage('System|Signal', `Candidate:\n${JSON.stringify(data.candidate, null, 2)}`);
+    }
     dispatch(OnSetOfferCode, {
       offerCode: btoa(JSON.stringify(data)),
     });
