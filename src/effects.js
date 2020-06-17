@@ -6,3 +6,11 @@ const CopyElementFX = (_dispatch, {
   document.execCommand('copy');
 };
 export const CopyElement = props => [CopyElementFX, props];
+
+const PeerSignalAnswerFX = (_dispatch, {
+  socket,
+  answer,
+}) => {
+  socket.signal(JSON.parse(atob(answer)));
+};
+export const PeerSignalAnswer = props => [PeerSignalAnswerFX, props];

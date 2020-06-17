@@ -1,9 +1,11 @@
-import Peer from 'simple-peer';
-
 const PeerHandlerSub = (dispatch, {
-  connectTo,
-
-  OnSetOfferCode,
+  id,
+  socket,
+  connectionOffer,
+  OnOffer,
+  OnAnswer,
+  OnPeer,
+  OnDestroy,
   OnMessagesAdd,
 }) => {
   const addMessage = (from, text, type) => (
@@ -15,50 +17,64 @@ const PeerHandlerSub = (dispatch, {
     })
   );
 
-  let peer = new Peer({
-    initiator: !connectTo,
-    trickle: true,
-    reconnectTimer: 30000,
-  });
+  console.log('PeerHandlerSub', { id, socket });
 
-  requestAnimationFrame(() => addMessage('SYSTEM', 'Creating peer...'));
-
-  peer.on('error', (error) => {
+  socket.on('error', (error) => {
     console.warn('Peer error', error);
-    addMessage('SYSTEM', `Error creating peer: ${error.toString()}. See console for traceback.`, 'error');
+    addMessage('SYS.WEBRTC.ERROR', `Error creating peer: ${error.toString()}. See console for traceback.`, 'error');
   });
 
-  peer.on('signal', (data) => {
+  socket.on('signal', (data) => {
     console.log('Peer received signal', data);
+
     if (data.type === 'offer') {
-      addMessage('System|Signal', `Offer:\n${data.sdp}`);
+      addMessage('SYS.WEBRTC.SIGNAL', `Offer:\n${data.sdp}`);
+      dispatch(OnOffer, {
+        offer: JSON.stringify(data),
+        socket,
+      });
+    } else if (data.type === 'answer') {
+      addMessage('SYS.WEBRTC.SIGNAL', `Answer:\n${data.sdp}`);
+      dispatch(OnAnswer, {
+        answer: JSON.stringify(data),
+        socket,
+      });
     } else {
-      addMessage('System|Signal', `Candidate:\n${JSON.stringify(data.candidate, null, 2)}`);
+      addMessage('SYS.WEBRTC.SIGNAL', JSON.stringify(data, null, 2));
     }
-    dispatch(OnSetOfferCode, {
-      offerCode: btoa(JSON.stringify(data)),
-    });
   });
 
-  peer.on('connect', (wut) => {
+  socket.on('connect', (wut) => {
     console.log('Peer connect', wut);
-    addMessage('SYSTEM', 'New peer connection');
+    addMessage('SYS.WEBRTC', 'New peer connection');
+    dispatch(OnPeer, { socket });
   });
 
-  peer.on('data', (data) => {
+  socket.on('data', (data) => {
     console.log('Peer data', data);
-    addMessage('SYSTEM', 'New peer data received');
+    addMessage('SYS.WEBRTC.DATA', JSON.stringify(data, null, 2));
   });
 
-  window.addEventListener('beforeunload', () => {
-    peer.destroy();
-    peer = null;
-  });
+  if (connectionOffer) {
+    const offer = JSON.parse(atob(connectionOffer));
+    console.log('PeerHandlerSub.connectionOffer', { offer });
+    socket.signal(offer)
+    requestAnimationFrame(() => (
+      addMessage('SYS.WEBRTC', 'Attempting to signal peer')
+    ));
+  }
+
+
+  const destroyPeer = () => {
+    dispatch(OnDestroy, { socket });
+    return socket && socket.destroy && socket.destroy();
+  };
+
+  window.addEventListener('beforeunload', destroyPeer);
 
   return () => {
-    console.log('SignalSub.cancel');
-
-    peer.destroy();
+    console.log('PeerHandlerSub.cancel', { id, socket });
+    requestAnimationFrame(destroyPeer);
   };
 };
 export const PeerHandler = props => [PeerHandlerSub, props];
