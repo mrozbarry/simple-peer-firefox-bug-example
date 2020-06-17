@@ -44,15 +44,19 @@ const PeerHandlerSub = (dispatch, {
     }
   });
 
-  socket.on('connect', (wut) => {
-    console.log('Peer connect', wut);
+  socket.on('connect', () => {
+    console.log('Peer connect');
     addMessage('SYS.WEBRTC', 'New peer connection');
     dispatch(OnPeer, { socket });
   });
 
   socket.on('data', (data) => {
-    console.log('Peer data', data);
-    addMessage('SYS.WEBRTC.DATA', JSON.stringify(data, null, 2));
+    const message = JSON.parse('' + data);
+    addMessage(message.from, message.text, message.dateTime);
+  });
+
+  socket.on('close', () => {
+    dispatch(OnDestroy, { socket });
   });
 
   if (connectionOffer) {
@@ -66,7 +70,6 @@ const PeerHandlerSub = (dispatch, {
 
 
   const destroyPeer = () => {
-    dispatch(OnDestroy, { socket });
     return socket && socket.destroy && socket.destroy();
   };
 
@@ -74,6 +77,7 @@ const PeerHandlerSub = (dispatch, {
 
   return () => {
     console.log('PeerHandlerSub.cancel', { id, socket });
+    window.removeEventListener('beforeunload', destroyPeer);
     requestAnimationFrame(destroyPeer);
   };
 };

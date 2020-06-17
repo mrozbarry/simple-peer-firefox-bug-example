@@ -7,6 +7,17 @@ const newPeer = (connectionOffer) => ({
   socket: new Peer({
     initiator: !Boolean(connectionOffer),
     trickle: false,
+    config: {
+      ...Peer.config,
+      iceServers: [
+        {
+          urls: 'turn:turn.mrbarry.com',
+          username: 'demo',
+          credential: 'guest',
+        },
+        ...Peer.config.iceServers,
+      ],
+    }
   }),
   connectionOffer,
   offer: null,
@@ -71,7 +82,7 @@ export const PeerConnected = (state, { socket }) => ({
   peers: state.peers.map((peer) => peer.socket !== socket ? peer : ({
     ...peer,
     connected: true,
-  })).concat(newPeer()),
+  })),
 });
 
 export const PeerDestroy = (state, { socket }) => ({
@@ -123,17 +134,28 @@ export const InputTextSet = (state, { text }) => ({
 });
 
 export const SendMessage = (state, { dateTime }) => {
-  const nextState = MessagesAdd(state, {
+  const message = {
     from: state.input.name,
     text: state.input.text,
     dateTime,
-  });
-
-  return {
-    ...nextState,
-    input: {
-      ...nextState.input,
-      text: '',
-    },
   };
+  const nextState = MessagesAdd(state, message);
+
+  const messageStr = JSON.stringify(message);
+
+  return [
+    {
+      ...nextState,
+      input: {
+        ...nextState.input,
+        text: '',
+      },
+    },
+    state.peers.map((peer) => (
+      effects.PeerSend({
+        socket: peer.socket,
+        message: messageStr,
+      })
+    )),
+  ];
 };
